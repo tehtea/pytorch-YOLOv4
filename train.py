@@ -10,6 +10,9 @@
     @Detail    :
 
 '''
+import matplotlib
+matplotlib.use('Agg')
+
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
@@ -273,21 +276,21 @@ def train(model, device, config, epochs=5, batch_size=1, save_cp=True, log_step=
     max_itr = config.TRAIN_EPOCHS * n_train
     # global_step = cfg.TRAIN_MINEPOCH * n_train
     global_step = 0
-    logging.info(f'''Starting training:
-        Epochs:          {epochs}
-        Batch size:      {config.batch}
-        Subdivisions:    {config.subdivisions}
-        Learning rate:   {config.learning_rate}
-        Training size:   {n_train}
-        Validation size: {n_val}
-        Checkpoints:     {save_cp}
-        Device:          {device.type}
-        Images size:     {config.width}
-        Optimizer:       {config.TRAIN_OPTIMIZER}
-        Dataset classes: {config.classes}
-        Train label path:{config.train_label}
-        Pretrained:
-    ''')
+    # logging.info(f'''Starting training:
+    #     Epochs:          {epochs}
+    #     Batch size:      {config.batch}
+    #     Subdivisions:    {config.subdivisions}
+    #     Learning rate:   {config.learning_rate}
+    #     Training size:   {n_train}
+    #     Validation size: {n_val}
+    #     Checkpoints:     {save_cp}
+    #     Device:          {device.type}
+    #     Images size:     {config.width}
+    #     Optimizer:       {config.TRAIN_OPTIMIZER}
+    #     Dataset classes: {config.classes}
+    #     Train label path:{config.train_label}
+    #     Pretrained:
+    # ''')
 
     # learning rate setup
     def burnin_schedule(i):
