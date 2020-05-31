@@ -2,7 +2,7 @@
 '''
 @Time          : 2020/05/08 11:45
 @Author        : Tianxiaomo
-@File          : coco_annotatin.py
+@File          : coco_annotation.py
 @Noice         :
 @Modificattion :
     @Author    :
@@ -16,9 +16,9 @@ from tqdm import tqdm
 import os
 
 """hyper parameters"""
-json_file_path = 'E:/Dataset/coco2017/annotations_trainval2017/annotations/instances_val2017.json'
-images_dir_path = 'mscoco2017/train2017/'
-output_path = '../data/val.txt'
+json_file_path = 'D:/cocoDataset/annotations_trainval2017/annotations/instances_val2017.json'
+images_dir_path = 'D:/cocoDataset/val2017/val2017'
+output_path = './data/val.txt'
 
 """load json file"""
 name_box_id = defaultdict(list)
@@ -30,8 +30,12 @@ with open(json_file_path, encoding='utf-8') as f:
 images = data['images']
 annotations = data['annotations']
 for ant in tqdm(annotations):
-    id = ant['image_id']
-    name = os.path.join(images_dir_path, images[id]['file_name'])
+    image_id = ant['image_id']
+    chosen_image = list(filter(lambda image: image['id'] == image_id, images))
+    if not len(chosen_image):
+        continue
+    chosen_image = chosen_image[0]
+    name = os.path.join(images_dir_path, chosen_image['file_name'])
     cat = ant['category_id']
 
     if cat >= 1 and cat <= 11:
