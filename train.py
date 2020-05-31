@@ -257,8 +257,16 @@ def train(model, device, config, epochs=5, batch_size=1, save_cp=True, log_step=
                             pin_memory=True, drop_last=True)
 
     writer = SummaryWriter(log_dir=config.TRAIN_TENSORBOARD_DIR,
-                           filename_suffix=f'OPT_{config.TRAIN_OPTIMIZER}_LR_{config.learning_rate}_BS_{config.batch}_Sub_{config.subdivisions}_Size_{config.width}',
-                           comment=f'OPT_{config.TRAIN_OPTIMIZER}_LR_{config.learning_rate}_BS_{config.batch}_Sub_{config.subdivisions}_Size_{config.width}')
+                           filename_suffix='OPT_{}_LR_{}_BS_{}_Sub_{}_Size_{}'.format(config.TRAIN_OPTIMIZER,
+                                                                                      config.learning_rate,
+                                                                                      config.batch,
+                                                                                      config.subdivisions,
+                                                                                      config.width),
+                           comment='OPT_{}_LR_{}_BS_{}_Sub_{}_Size_{}'.format(config.TRAIN_OPTIMIZER,
+                                                                              config.learning_rate,
+                                                                              config.batch,
+                                                                              config.subdivisions,
+                                                                              config.width))
     # writer.add_images('legend',
     #                   torch.from_numpy(train_dataset.label2colorlegend2(cfg.DATA_CLASSES).transpose([2, 0, 1])).to(
     #                       device).unsqueeze(0))
@@ -306,7 +314,7 @@ def train(model, device, config, epochs=5, batch_size=1, save_cp=True, log_step=
         epoch_loss = 0
         epoch_step = 0
 
-        with tqdm(total=n_train, desc=f'Epoch {epoch + 1}/{epochs}', unit='img', ncols=50) as pbar:
+        with tqdm(total=n_train, desc='Epoch {}/{}'.format(epoch + 1, epochs), unit='img', ncols=50) as pbar:
             for i, batch in enumerate(train_loader):
                 global_step += 1
                 epoch_step += 1
@@ -358,8 +366,8 @@ def train(model, device, config, epochs=5, batch_size=1, save_cp=True, log_step=
                     logging.info('Created checkpoint directory')
                 except OSError:
                     pass
-                torch.save(model.state_dict(), os.path.join(config.checkpoints, f'Yolov4_epoch{epoch + 1}.pth'))
-                logging.info(f'Checkpoint {epoch + 1} saved !')
+                torch.save(model.state_dict(), os.path.join(config.checkpoints, 'Yolov4_epoch{}.pth'.format(epoch + 1)))
+                logging.info('Checkpoint {} saved !'.format(epoch + 1))
 
     writer.close()
 
@@ -429,7 +437,7 @@ if __name__ == "__main__":
     cfg = get_args(**Cfg)
     os.environ["CUDA_VISIBLE_DEVICES"] = cfg.gpu
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    logging.info(f'Using device {device}')
+    logging.info('Using device {}'.format(device))
 
     model = Yolov4(cfg.pretrained,n_classes=cfg.classes)
 
