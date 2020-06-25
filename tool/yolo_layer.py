@@ -266,7 +266,7 @@ class YoloLayer(nn.Module):
 
         self.model_out = model_out
 
-    def forward(self, output, target=None):
+    def forward(self, output):
 
         masked_anchors = []
         for m in self.anchor_mask:

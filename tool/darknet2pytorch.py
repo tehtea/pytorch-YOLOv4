@@ -1,12 +1,14 @@
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
-from tool.region_loss import RegionLoss
-from tool.yolo_layer import YoloLayer
-from tool.config import *
-from tool.torch_utils import *
 
-class Mish(torch.nn.Module):
+from tool.config import *
+from tool.region_loss import RegionLoss
+from tool.torch_utils import *
+from tool.yolo_layer import YoloLayer
+
+
+class Mish(nn.Module):
     def __init__(self):
         super().__init__()
 
@@ -72,7 +74,6 @@ class Upsample_interpolate(nn.Module):
         self.stride = stride
 
     def forward(self, x):
-
         x_numpy = x.cpu().detach().numpy()
         H = x_numpy.shape[2]
         W = x_numpy.shape[3]
@@ -138,7 +139,7 @@ class Darknet(nn.Module):
         self.blocks = parse_cfg(cfgfile)
         self.width = int(self.blocks[0]['width'])
         self.height = int(self.blocks[0]['height'])
-        
+
         self.models = self.create_network(self.blocks)  # merge conv, bn,leaky
         self.loss = self.models[len(self.models) - 1]
 
@@ -153,7 +154,7 @@ class Darknet(nn.Module):
 
     def forward(self, x):
         ind = -2
-        self.loss = None
+        bboxes_pred = []
         outputs = dict()
         out_boxes = []
         for block in self.blocks:
@@ -208,7 +209,7 @@ class Darknet(nn.Module):
                 outputs[ind] = None
             elif block['type'] == 'yolo':
                 if self.training:
-                    pass
+                    bboxes_pred.append(x)
                 else:
                     boxes = self.models[ind](x)
                     out_boxes.append(boxes)
@@ -216,9 +217,9 @@ class Darknet(nn.Module):
                 continue
             else:
                 print('unknown type %s' % (block['type']))
-        
+
         if self.training:
-            return self.loss
+            return bboxes_pred
         else:
             return get_region_boxes(out_boxes)
 
