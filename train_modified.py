@@ -299,6 +299,7 @@ def train(model, device, config, epochs=5, batch_size=1, save_cp=True, log_step=
             factor = 0.01
         return factor
 
+    # optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
     optimizer = optim.Adam(model.parameters(), lr=config.learning_rate / config.batch, betas=(0.9, 0.999), eps=1e-08)
     scheduler = optim.lr_scheduler.LambdaLR(optimizer, burnin_schedule)
 
