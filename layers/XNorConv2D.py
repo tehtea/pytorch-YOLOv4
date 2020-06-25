@@ -152,27 +152,6 @@ class XNorConv2D(nn.Module):
         input_K_one_channel = torch.mean(input_K_intermediate, (1))
         input_K = input_K_one_channel.repeat(1, output_channels, 1, 1)
 
-        # output_height = int((input_height - (filter_height - 1)) / stride_y)
-        # output_width = int((input_width - (filter_width - 1)) / stride_x)
-        # input_K = torch.zeros([input_batch_size, output_channels, output_height, output_width],
-        #                       dtype=torch.float64)
-        # input_patch_size = filter_height * filter_width
-        # print("thisfockeran2")
-        # for input_batch_size_index in range(input_batch_size):
-        #     for output_channel_index in range(output_channels):
-        #         for input_channel_index in range(input_channels):
-        #             for output_height_index in range(0, output_height):
-        #                 for output_width_index in range(0, output_width):
-        #                     # print("thisfockeran3")
-        #                     input_patch = input[
-        #                                         input_batch_size_index,
-        #                                       input_channel_index,
-        #                                       (output_height_index * stride_y):(output_height_index * stride_y + filter_height),
-        #                                       (output_width_index * stride_x):(output_width_index * stride_x + filter_width)
-        #                                   ]
-        #                     input_K[input_batch_size_index, output_channel_index, output_height_index, output_width_index] += torch.sum(torch.abs(input_patch)) / input_patch_size
-        # input_K /= input_channels
-
         input_binarized = input.data >= 0
         input_binarized = input_binarized.float() * 2 - 1
         return {
@@ -184,19 +163,15 @@ class XNorConv2D(nn.Module):
     def forward(self, input):
         self.device = input.device
         input = self.pad(input, *self.padding)
-        binarization_variables = self.bin_activ(input, self.weight, self.kernel_size, self.output_channels, self.stride)
-        input_K = binarization_variables["input_K"]
-        weight_alpha = binarization_variables["weight_alpha"]
-        input_binarized = binarization_variables["input_binarized"]
+        input_binarized = input.data >= 0
+        input_binarized = input_binarized.float() * 2 - 1
+        input_K = F.avg_pool2d(torch.mean(abs(input), 1), self.kernel_size, stride=self.stride, padding=0)
+        input_K = input_K.repeat(1, self.output_channels, 1, 1)
+        weight_alpha = self.weight.mean([1, 2, 3]).unsqueeze(1).unsqueeze(2).repeat(input.size()[0], 1, 1, 1)
         if self.training:
-            # print("see input shape: ", input_binarized.size())
-            # print("see weight shape: ", self.weight.size())
-            intermediate = F.conv2d(input_binarized, self.weight, stride=self.stride, bias=self.bias, padding=0)
-            # print("see intermediate shape: ", intermediate.size())
-            # print("see input_K shape: ", input_K.size())
-            # print("see weight_alpha shape: ", weight_alpha[None, :, None, None].size() )
-            # print("see intermediate output subset: ", intermediate[:3])
-            return intermediate * input_K * weight_alpha[None, :, None, None]
+            return F.conv2d(input_binarized, self.weight, stride=self.stride, bias=self.bias, padding=0) * \
+                   input_K * \
+                   weight_alpha
         else:
             return self.inference_forward(input, self.weight, *self.padding, *self.stride, self.input_channels,
                                           self.output_channels, self.kernel_size)
