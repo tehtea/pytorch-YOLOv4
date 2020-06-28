@@ -10,6 +10,8 @@
     @Detail    :
 
 '''
+import time
+
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
@@ -88,15 +90,16 @@ def bboxes_ciou(bboxes_a, bboxes_b, xyxy=True):
 
 
 class Yolo_loss(nn.Module):
-    def __init__(self, n_classes=80, n_anchors=3, device=None, batch=2):
+    def __init__(self, n_classes=80, image_size=608, n_anchors=3, device=None, batch=2):
         super(Yolo_loss, self).__init__()
         self.device = device
         self.strides = [8, 16, 32]
-        image_size = 608
         self.n_classes = n_classes
         self.n_anchors = n_anchors
 
+        anchor_scale = image_size / 608
         self.anchors = [[12, 16], [19, 36], [40, 28], [36, 75], [76, 55], [72, 146], [142, 110], [192, 243], [459, 401]]
+        self.anchors = [[w * anchor_scale, h * anchor_scale] for w, h in self.anchors]
         self.anch_masks = [[0, 1, 2], [3, 4, 5], [6, 7, 8]]
         self.ignore_thre = 0.5
 
@@ -271,47 +274,50 @@ def train(model, device, config, epochs=5, batch_size=1, save_cp=True, log_step=
     max_itr = config.TRAIN_EPOCHS * n_train
     # global_step = cfg.TRAIN_MINEPOCH * n_train
     global_step = 0
-    # logging.info(f'''Starting training:
-    #     Epochs:          {epochs}
-    #     Batch size:      {config.batch}
-    #     Subdivisions:    {config.subdivisions}
-    #     Learning rate:   {config.learning_rate}
-    #     Training size:   {n_train}
-    #     Validation size: {n_val}
-    #     Checkpoints:     {save_cp}
-    #     Device:          {device.type}
-    #     Images size:     {config.width}
-    #     Optimizer:       {config.TRAIN_OPTIMIZER}
-    #     Dataset classes: {config.classes}
-    #     Train label path:{config.train_label}
-    #     Pretrained:
-    # ''')
+    logging.info(f'''Starting training:
+        Epochs:          {epochs}
+        Batch size:      {config.batch}
+        Subdivisions:    {config.subdivisions}
+        Learning rate:   {config.learning_rate}
+        Training size:   {n_train}
+        Validation size: {n_val}
+        Checkpoints:     {save_cp}
+        Device:          {device.type}
+        Images size:     {config.width}
+        Optimizer:       {"SGD (forced override)"}
+        Dataset classes: {config.classes}
+        Train label path:{config.train_label}
+        Pretrained: {"False"}
+    ''')
 
     # learning rate setup
-    def burnin_schedule(i):
-        if i < config.burn_in:
-            factor = pow(i / config.burn_in, 4)
-        elif i < config.steps[0]:
-            factor = 1.0
-        elif i < config.steps[1]:
-            factor = 0.1
-        else:
-            factor = 0.01
-        return factor
+    def burnin_schedule(step):
+        # if epoch < config.burn_in:
+        #     factor = pow(epoch / config.burn_in, 4)
+        # elif epoch < config.steps[0]:
+        #     factor = 1.0
+        # elif epoch < config.steps[1]:
+        #     factor = 0.1
+        # else:
+        #     factor = 0.01
+        # return factor
+        return max(1 - step / 5000 * 0.1, 0.1)
 
-    # optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
-    optimizer = optim.Adam(model.parameters(), lr=config.learning_rate / config.batch, betas=(0.9, 0.999), eps=1e-08)
+    optimizer = optim.SGD(model.parameters(), lr=config.learning_rate, momentum=config.momentum,
+                          weight_decay=config.decay)
+    # optimizer = optim.Adam(model.parameters(), lr=config.learning_rate / config.batch, betas=(0.9, 0.999), eps=1e-08)
     scheduler = optim.lr_scheduler.LambdaLR(optimizer, burnin_schedule)
 
-    criterion = Yolo_loss(device=device, batch=config.batch // config.subdivisions, n_classes=config.classes)
-    # scheduler = ReduceLROnPlateau(optimizer, mode='max', verbose=True, patience=6, min_lr=1e-7)
-    # scheduler = CosineAnnealingWarmRestarts(optimizer, 0.001, 1e-6, 20)
+    # TODO: support different sized height and width
+    criterion = Yolo_loss(image_size=cfg.h, device=device, batch=config.batch // config.subdivisions,
+                          n_classes=config.classes)
 
     model.train()
     for epoch in range(epochs):
         # model.train()
         epoch_loss = 0
         epoch_step = 0
+        batch_loss = 0
 
         with tqdm(total=n_train, desc='Epoch {}/{}'.format(epoch + 1, epochs), unit='img', ncols=50) as pbar:
             for i, batch in enumerate(train_loader):
@@ -323,17 +329,29 @@ def train(model, device, config, epochs=5, batch_size=1, save_cp=True, log_step=
                 images = images.to(device=device, dtype=torch.float32)
                 bboxes = bboxes.to(device=device)
 
+                start_pred = time.time()
                 bboxes_pred = model(images)
+                end_pred = time.time()
+                start_loss = time.time()
                 loss, loss_xy, loss_wh, loss_obj, loss_cls, loss_l2 = criterion(bboxes_pred, bboxes)
+                batch_loss += loss
+                end_loss = time.time()
                 # loss = loss / config.subdivisions
-                loss.backward()
+                # start_grad = time.time()
+                # loss.backward()
+                # end_grad = time.time()
 
                 epoch_loss += loss.item()
 
                 if global_step % config.subdivisions == 0:
+                    start_grad = time.time()
+                    batch_loss.backward()
+                    end_grad = time.time()
                     optimizer.step()
                     scheduler.step()
                     model.zero_grad()
+                    batch_loss = 0
+                    print("\npred time: {}, loss time: {}, gradient compute time: {}".format(end_pred - start_pred, end_loss - start_loss, end_grad - start_grad))
 
                 if global_step % (log_step * config.subdivisions) == 0:
                     writer.add_scalar('train/Loss', loss.item(), global_step)
@@ -348,7 +366,7 @@ def train(model, device, config, epochs=5, batch_size=1, save_cp=True, log_step=
                                         'loss_obj': loss_obj.item(),
                                         'loss_cls': loss_cls.item(),
                                         'loss_l2': loss_l2.item(),
-                                        'lr': scheduler.get_lr()[0] * config.batch
+                                        # 'lr': scheduler.get_lr()[0] * config.batch
                                         })
                     logging.debug('Train step_{}: loss : {},loss xy : {},loss wh : {},'
                                   'loss obj : {}，loss cls : {},loss l2 : {},lr : {}'
@@ -356,6 +374,7 @@ def train(model, device, config, epochs=5, batch_size=1, save_cp=True, log_step=
                                           loss_wh.item(), loss_obj.item(),
                                           loss_cls.item(), loss_l2.item(),
                                           scheduler.get_lr()[0] * config.batch))
+                                          # config.learning_rate))
 
                 pbar.update(images.shape[0])
 
@@ -442,7 +461,11 @@ if __name__ == "__main__":
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     logging.info('Using device {}'.format(device))
 
-    model = Darknet(cfg.cfg_file)
+    model = Darknet(cfg)
+    if model.width:
+        cfg.w = int(model.width)
+    if model.height:
+        cfg.h = int(model.height)
 
     if torch.cuda.device_count() > 1:
         model = torch.nn.DataParallel(model)

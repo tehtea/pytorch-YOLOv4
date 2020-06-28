@@ -134,10 +134,11 @@ class EmptyModule(nn.Module):
 
 # support route shortcut and reorg
 class Darknet(nn.Module):
-    def __init__(self, cfgfile):
+    def __init__(self, cfg):
         super(Darknet, self).__init__()
 
-        self.blocks = parse_cfg(cfgfile)
+        self.cfg = cfg
+        self.blocks = parse_cfg(cfg.cfg_file)
         self.width = int(self.blocks[0]['width'])
         self.height = int(self.blocks[0]['height'])
 
@@ -238,6 +239,12 @@ class Darknet(nn.Module):
         for block in blocks:
             if block['type'] == 'net':
                 prev_filters = int(block['channels'])
+                self.cfg.height = int(block['height'])
+                self.cfg.width = int(block['width'])
+                self.cfg.learning_rate = float(block['learning_rate'])
+                self.cfg.batch = int(block['batch'])
+                self.cfg.subdivisions = int(block['subdivisions'])
+                self.cfg.decay = float(block['decay'])
                 continue
             elif block['type'] == 'convolutional':
                 conv_id = conv_id + 1
@@ -254,9 +261,9 @@ class Darknet(nn.Module):
                 model = nn.Sequential()
                 if use_xnor:
                     if batch_normalize:
-                        model.add_module('bn{0}'.format(conv_id), nn.BatchNorm2d(prev_filters))
                         model.add_module('conv{0}'.format(conv_id),
                                          XNorConv2D(prev_filters, filters, kernel_size, stride, pad, bias=False))
+                        model.add_module('bn{0}'.format(conv_id), nn.BatchNorm2d(filters))
                     else:
                         model.add_module('conv{0}'.format(conv_id),
                                          XNorConv2D(prev_filters, filters, kernel_size, stride, pad))
