@@ -274,21 +274,21 @@ def train(model, device, config, epochs=5, batch_size=1, save_cp=True, log_step=
     max_itr = config.TRAIN_EPOCHS * n_train
     # global_step = cfg.TRAIN_MINEPOCH * n_train
     global_step = 0
-    logging.info(f'''Starting training:
-        Epochs:          {epochs}
-        Batch size:      {config.batch}
-        Subdivisions:    {config.subdivisions}
-        Learning rate:   {config.learning_rate}
-        Training size:   {n_train}
-        Validation size: {n_val}
-        Checkpoints:     {save_cp}
-        Device:          {device.type}
-        Images size:     {config.width}
-        Optimizer:       {"SGD (forced override)"}
-        Dataset classes: {config.classes}
-        Train label path:{config.train_label}
-        Pretrained: {"False"}
-    ''')
+    # logging.info(f'''Starting training:
+    #     Epochs:          {epochs}
+    #     Batch size:      {config.batch}
+    #     Subdivisions:    {config.subdivisions}
+    #     Learning rate:   {config.learning_rate}
+    #     Training size:   {n_train}
+    #     Validation size: {n_val}
+    #     Checkpoints:     {save_cp}
+    #     Device:          {device.type}
+    #     Images size:     {config.width}
+    #     Optimizer:       {"SGD (forced override)"}
+    #     Dataset classes: {config.classes}
+    #     Train label path:{config.train_label}
+    #     Pretrained: {"False"}
+    # ''')
 
     # learning rate setup
     def burnin_schedule(step):
@@ -301,7 +301,15 @@ def train(model, device, config, epochs=5, batch_size=1, save_cp=True, log_step=
         # else:
         #     factor = 0.01
         # return factor
-        return max(1 - step / 5000 * 0.1, 0.1)
+        # return max(1 - step / 5000 * 0.1, 0.1)
+        if step < 50000:
+            factor = 1
+        elif step < 100000:
+            factor = 0.1
+        else:
+            factor = 0.01
+        return factor
+        # return max(1 - step / 5000 * 0.1, 0.1)
 
     optimizer = optim.SGD(model.parameters(), lr=config.learning_rate, momentum=config.momentum,
                           weight_decay=config.decay)
