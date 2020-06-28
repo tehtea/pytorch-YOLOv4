@@ -302,13 +302,14 @@ def train(model, device, config, epochs=5, batch_size=1, save_cp=True, log_step=
         #     factor = 0.01
         # return factor
         # return max(1 - step / 5000 * 0.1, 0.1)
-        if step < 50000:
+        if step < 1000:
             factor = 1
         elif step < 100000:
             factor = 0.1
         else:
             factor = 0.01
         return factor
+        return 1
         # return max(1 - step / 5000 * 0.1, 0.1)
 
     optimizer = optim.SGD(model.parameters(), lr=config.learning_rate, momentum=config.momentum,
