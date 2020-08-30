@@ -173,6 +173,7 @@ def test(model, annotations, cfg):
     throwaway_image = Image.open('data/dog.jpg').convert('RGB').resize((model.width, model.height))
     do_detect(model, throwaway_image, 0.5, 80, 0.4, use_cuda)
     boxes_json = []
+    times_taken = []
 
     for i, image_annotation in enumerate(images):
         logging.info("currently on image: {}/{}".format(i + 1, len(images)))
@@ -294,7 +295,7 @@ if __name__ == "__main__":
     cfg = get_args(**Cfg)
     os.environ["CUDA_VISIBLE_DEVICES"] = cfg.gpu
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    logging.info(f'Using device {device}')
+    logging.info('Using device %s' % device)
 
     model = Darknet(cfg.model_config)
 
